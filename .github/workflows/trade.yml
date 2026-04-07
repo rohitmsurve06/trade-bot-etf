@@ -1,1 +1,110 @@
+name: Daily Trading Bot
 
+on:
+  # ── Scheduled trigger: 07:00 UTC = 15:00 SGT (UTC+8) ─────────────────────
+  schedule:
+    - cron: "0 7 * * 1-5"   # Monday–Friday only (markets closed on weekends)
+
+  # ── Manual trigger for testing / emergency runs ────────────────────────────
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (skip actual order placement)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+# Prevent concurrent runs (e.g., if a run takes > 24h due to hung orders)
+concurrency:
+  group: trading-bot
+  cancel-in-progress: false
+
+jobs:
+  trade:
+    name: Run Value Averaging Bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 30    # Hard kill after 30 min to prevent runaway containers
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python setup ──────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Install dependencies ──────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 4. Restore persisted data (investments.csv + tracker.json) ───────────
+      #       We use a GitHub Actions cache so state persists between runs.
+      #       The cache key rotates monthly to prevent unbounded growth.
+      - name: Restore data cache
+        id: cache-data
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: bot-data-${{ hashFiles('data/investments.csv') }}-${{ github.run_number }}
+          restore-keys: |
+            bot-data-${{ hashFiles('data/investments.csv') }}-
+            bot-data-
+
+      # ── 5. Write .env from GitHub Secrets ────────────────────────────────────
+      - name: Write .env file
+        run: |
+          cat <<EOF > .env
+          IB_HOST=${{ secrets.IB_HOST }}
+          IB_PORT=${{ secrets.IB_PORT }}
+          IB_CLIENT_ID=${{ secrets.IB_CLIENT_ID }}
+          IB_ACCOUNT_ID=${{ secrets.IB_ACCOUNT_ID }}
+          MONTHLY_BUDGET_PER_TICKER=${{ secrets.MONTHLY_BUDGET_PER_TICKER }}
+          DIP_THRESHOLD=0.95
+          LIMIT_ORDER_DISCOUNT=0.002
+          COMMISSION_BUFFER=0.998
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+          NOTIFY_TO=${{ secrets.NOTIFY_TO }}
+          NOTIFY_FROM=${{ secrets.NOTIFY_FROM }}
+          LOG_LEVEL=INFO
+          EOF
+
+      # ── 6. Run the bot ────────────────────────────────────────────────────────
+      - name: Run trading bot
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python main.py
+
+      # ── 7. Upload logs as artifact ────────────────────────────────────────────
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-log-${{ github.run_number }}
+          path: bot.log
+          retention-days: 30
+
+      # ── 8. Save updated data back to cache ───────────────────────────────────
+      - name: Save data cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/
+          key: bot-data-${{ hashFiles('data/investments.csv') }}-${{ github.run_number }}
+
+      # ── 9. Notify on workflow failure ─────────────────────────────────────────
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setFailed('Trading bot workflow failed. Check the uploaded bot.log artifact.')
