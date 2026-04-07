@@ -1,1 +1,6 @@
-
+Ticker,Type,Total_Shares,Weighted_Avg_Price,Currency
+INDA,ETF,50,38.50,USD
+INDY,ETF,30,42.10,USD
+SMIN,ETF,20,55.75,USD
+IEMG,ETF,100,48.20,USD
+NIFBEES,UnitTrust,200,120.50,INR

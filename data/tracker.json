@@ -1,0 +1,40 @@
+{
+  "last_budget_add_date": null,
+  "tickers": {
+    "INDA": {
+      "pending_balance": 0.0,
+      "is_waiting_for_execution": false,
+      "target_limit_price": null,
+      "last_signal_date": null,
+      "last_closing_price": null
+    },
+    "INDY": {
+      "pending_balance": 0.0,
+      "is_waiting_for_execution": false,
+      "target_limit_price": null,
+      "last_signal_date": null,
+      "last_closing_price": null
+    },
+    "SMIN": {
+      "pending_balance": 0.0,
+      "is_waiting_for_execution": false,
+      "target_limit_price": null,
+      "last_signal_date": null,
+      "last_closing_price": null
+    },
+    "IEMG": {
+      "pending_balance": 0.0,
+      "is_waiting_for_execution": false,
+      "target_limit_price": null,
+      "last_signal_date": null,
+      "last_closing_price": null
+    },
+    "NIFBEES": {
+      "pending_balance": 0.0,
+      "is_waiting_for_execution": false,
+      "target_limit_price": null,
+      "last_signal_date": null,
+      "last_closing_price": null
+    }
+  }
+}
